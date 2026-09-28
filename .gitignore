@@ -1,0 +1,14 @@
+node_modules/
+.next/
+out/
+dist/
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+.DS_Store
+npm-debug.log*
+.vercel
+__pycache__/
+*.pyc

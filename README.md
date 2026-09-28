@@ -1,0 +1,74 @@
+# OpenNotum
+
+Public web attestation on GenLayer Studionet. File a case. Validators fetch
+live pages. The network issues a shareable receipt.
+
+> **Not a licensed notarial act. Not legally binding.** Studionet is a
+> development network — recorded cases may reset.
+
+## Live demo
+
+_TODO: Vercel URL, filled in at Phase 5._
+
+## Network
+
+| | Value |
+|---|---|
+| Network | GenLayer Studionet |
+| RPC | `https://studio.genlayer.com/api` |
+| Chain ID | `61999` |
+| Explorer | `https://explorer-studio.genlayer.com` |
+| Contract address | _TODO: filled in at Phase 5_ |
+
+## How it works
+
+1. **File a case** in one of three modes:
+   - **Snapshot** — one URL, one claim. Verdict: `CONFIRMED / CHANGED / GONE / INSUFFICIENT`.
+   - **Conflict** — two or three URLs, one question. Verdict: `AGREED / CONFLICT / INSUFFICIENT`.
+   - **Template** — a built-in template (`github_release`, `company_ir`,
+     `status_page`) plus its fields. Verdict: `PASS / FAIL / INSUFFICIENT`.
+2. **Resolve** the case (any account can trigger this). GenLayer validators
+   independently fetch the live page(s) inside the contract's
+   nondeterministic block, judge the evidence with an LLM, and reconcile
+   across validators via the Equivalence Principle.
+3. **Read the receipt.** The verdict, reasons, risk flags, and short source
+   notes are recorded on-chain and viewable at `/cases/[id]`, permanently
+   linkable.
+
+No verdict is ever computed or faked in the frontend — every verdict traces
+to a real on-chain resolution.
+
+## Local run
+
+```bash
+npm install
+cp .env.example .env.local   # fill in NEXT_PUBLIC_CONTRACT_ADDRESS after deploy
+npm run dev
+```
+
+## Sample evidence
+
+The app's create form includes "Sample" buttons that pre-fill known-good
+inputs for each mode (clearly labeled as samples, never submitted silently).
+
+## Limitations
+
+- LLM judgement carries irreducible variance — a verdict is a good-faith
+  read, not a legal fact.
+- A verdict reflects the page(s) at resolution time; pages can change or
+  disappear afterward.
+- Studionet is a development network and can reset, deleting case history.
+- This is a decentralized attestation tool, not a licensed notary and not
+  legal advice.
+
+## Roadmap
+
+- Phase 0 — Definition (this repo's docs) — done.
+- Phase 1 — Contract MVP (create + views, full validation).
+- Phase 2 — Resolve (live fetch + LLM + consensus, all three modes).
+- Phase 3 — Frontend MVP against the deployed contract.
+- Phase 4 — Hardening (documented failure-state tests).
+- Phase 5 — Deploy + package (this README filled in end to end).
+
+See [`docs/PRD.md`](docs/PRD.md), [`docs/TRD.md`](docs/TRD.md), and
+[`docs/SDLC.md`](docs/SDLC.md) for the full spec.
