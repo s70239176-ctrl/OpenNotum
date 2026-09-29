@@ -8,7 +8,7 @@ live pages. The network issues a shareable receipt.
 
 ## Live demo
 
-_TODO: Vercel URL, filled in at Phase 5._
+https://opennotum.vercel.app/
 
 ## Network
 
@@ -51,6 +51,19 @@ npm run dev
 The app's create form includes "Sample" buttons that pre-fill known-good
 inputs for each mode (clearly labeled as samples, never submitted silently).
 
+## Contract tests
+
+```bash
+pip install pytest
+python -m pytest tests/ -v
+```
+
+21 direct-mode tests cover every deterministic-validation rejection plus
+`resolve()`'s status transitions (dead page → `GONE`, ambiguous page →
+`INSUFFICIENT`, resolving twice → rejected, malformed model output →
+`FAILED`). See [`docs/SDLC.md`](docs/SDLC.md) Phase 4 for how these stub the
+GenVM-only parts.
+
 ## Limitations
 
 - LLM judgement carries irreducible variance — a verdict is a good-faith
@@ -60,6 +73,11 @@ inputs for each mode (clearly labeled as samples, never submitted silently).
 - Studionet is a development network and can reset, deleting case history.
 - This is a decentralized attestation tool, not a licensed notary and not
   legal advice.
+- `created_at`/`resolved_at` are currently always empty — the contract's
+  `hasattr(gl.message, "timestamp")` check never finds a timestamp on
+  Studionet, so no date is recorded. Needs a redeploy with the correct
+  GenVM timestamp accessor (not yet confirmed) to fix; the UI shows "—"
+  rather than a fabricated date in the meantime.
 
 ## Roadmap
 
@@ -69,7 +87,7 @@ inputs for each mode (clearly labeled as samples, never submitted silently).
   Snapshot mode (see the contract address above); Conflict and Template
   modes not yet exercised on Studionet.
 - Phase 3 — Frontend MVP against the deployed contract — done.
-- Phase 4 — Hardening (documented failure-state tests) — not started.
+- Phase 4 — Hardening (documented failure-state tests) — done, 21 tests.
 - Phase 5 — Deploy + package — contract deployed and verified; frontend
   deployment in progress.
 

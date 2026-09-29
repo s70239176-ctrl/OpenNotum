@@ -50,6 +50,21 @@ error states for wrong network/env.
 Exit: the test list above is documented with pass/fail status, and every
 failure state is visibly reachable in the UI (not just logged to console).
 
+**Status: done.** `tests/` holds 21 direct-mode pytest cases against the
+real `contracts/opennotum.py` — every deterministic-validation rejection in
+TRD section 5.3, plus resolve()'s status transitions (reachable page →
+LLM verdict, dead page → forced `GONE`, ambiguous page → `INSUFFICIENT`,
+resolving twice → rejected, malformed LLM output → `FAILED`). GenVM isn't
+available outside GenLayer's own infrastructure, so `tests/genlayer_stub.py`
+fakes the `genlayer` SDK just enough to import and run the contract's real
+code, and `gl.nondet.web.get` / `gl.nondet.exec_prompt` are stubbed per test
+rather than hitting a live network or model — this is unit/direct-mode
+testing of the contract's own logic, not a replacement for the Studionet
+integration checks already done against the live deployed contract (cases
+#1 and #2, linked in the README). Run with `python -m pytest tests/ -v`
+(needs `pip install pytest`). Frontend error states (wrong network/env)
+were verified manually in-browser during the redesign rather than scripted.
+
 ## Phase 5 — Deploy + package
 
 Deliverables: Studionet contract address recorded in `README.md` and
