@@ -79,11 +79,42 @@ export function getReadClient(): ReadClient {
 
 export type WalletClient = ReturnType<typeof createClient>;
 
+type EIP1193Provider = {
+  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+  isMetaMask?: boolean;
+  providers?: EIP1193Provider[];
+};
+
+/**
+ * genlayer-js's client.connect() signs in via a MetaMask *Snap*
+ * (npm:genlayer-wallet-plugin) — it calls the MetaMask-only `wallet_getSnaps`
+ * method to check whether the snap is installed. If another wallet extension
+ * (Coinbase Wallet, Rabby, Brave Wallet, etc.) has also injected itself and
+ * taken over `window.ethereum`, that call fails with a confusing "no
+ * handler" error. Multi-wallet-aware extensions expose every injected
+ * provider under `window.ethereum.providers`, so pick the MetaMask one
+ * specifically instead of trusting whichever provider is on top.
+ */
+function findMetaMaskProvider(): EIP1193Provider | undefined {
+  const ethereum = (globalThis as { ethereum?: EIP1193Provider }).ethereum;
+  if (!ethereum) return undefined;
+  if (Array.isArray(ethereum.providers) && ethereum.providers.length > 0) {
+    return ethereum.providers.find((p) => p.isMetaMask) ?? ethereum;
+  }
+  return ethereum;
+}
+
 /** Requests a browser wallet connection and returns a client that can sign writes. */
 export async function connectWallet(): Promise<{ client: WalletClient; address: string }> {
-  const ethereum = (globalThis as { ethereum?: { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> } }).ethereum;
+  const ethereum = findMetaMaskProvider();
   if (!ethereum) {
-    throw new Error("No browser wallet found. Install a wallet extension to file or resolve cases.");
+    throw new Error("No browser wallet found. Install MetaMask to file or resolve cases.");
+  }
+  if (!ethereum.isMetaMask) {
+    throw new Error(
+      "GenLayer requires MetaMask specifically (it signs through a MetaMask Snap). " +
+        "Disable other wallet extensions or select MetaMask as the active wallet, then try again.",
+    );
   }
   const accounts = (await ethereum.request({ method: "eth_requestAccounts" })) as string[];
   const address = accounts[0];
@@ -96,10 +127,16 @@ export async function connectWallet(): Promise<{ client: WalletClient; address: 
     account: address as `0x${string}`,
     provider: ethereum,
   });
-  // Switches (or adds, if missing) the wallet's active network to match
-  // NETWORK_NAME — without this the wallet keeps whatever chain it already
-  // had selected and every write is rejected with a chain-id mismatch.
-  await client.connect(NETWORK_NAME);
+  // Installs (or verifies) the GenLayer MetaMask Snap this client signs
+  // through, and switches the wallet's active network to match NETWORK_NAME.
+  try {
+    await client.connect(NETWORK_NAME);
+  } catch (err) {
+    throw new Error(
+      `Could not connect to the GenLayer MetaMask Snap: ${formatError(err)}. ` +
+        "Make sure MetaMask is up to date and Snaps are enabled.",
+    );
+  }
   return { client, address };
 }
 
