@@ -12,3 +12,5 @@ npm-debug.log*
 .vercel
 __pycache__/
 *.pyc
+*.tsbuildinfo
+next-env.d.ts
