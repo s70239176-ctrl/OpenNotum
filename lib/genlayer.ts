@@ -11,16 +11,25 @@ import { TransactionStatus, type CalldataEncodable, type Hash, type Network } fr
 
 const VALID_NETWORKS: Network[] = ["localnet", "studionet", "testnetAsimov", "testnetBradbury", "mainnet"];
 
+// `??` only falls back on undefined/null, not on an env var that's set but
+// left blank (e.g. `NEXT_PUBLIC_EXPLORER_URL=` in a Vercel dashboard) — that
+// left EXPLORER_URL as "", turning explorerTxUrl() into a bare "/tx/<hash>"
+// path that silently resolves against this app's own domain instead of the
+// real explorer. `||` treats blank the same as unset.
+function envOrDefault(value: string | undefined, fallback: string): string {
+  return value && value.trim() ? value.trim() : fallback;
+}
+
 function resolveNetworkName(): Network {
-  const raw = process.env.NEXT_PUBLIC_NETWORK_NAME ?? "studionet";
+  const raw = envOrDefault(process.env.NEXT_PUBLIC_NETWORK_NAME, "studionet");
   return (VALID_NETWORKS as string[]).includes(raw) ? (raw as Network) : "studionet";
 }
 
 export const NETWORK_NAME: Network = resolveNetworkName();
-export const RPC_URL = process.env.NEXT_PUBLIC_GENLAYER_RPC ?? "https://studio.genlayer.com/api";
-export const CHAIN_ID = Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? "61999");
-export const EXPLORER_URL = process.env.NEXT_PUBLIC_EXPLORER_URL ?? "https://explorer-studio.genlayer.com";
-export const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS ?? "";
+export const RPC_URL = envOrDefault(process.env.NEXT_PUBLIC_GENLAYER_RPC, "https://studio.genlayer.com/api");
+export const CHAIN_ID = Number(envOrDefault(process.env.NEXT_PUBLIC_CHAIN_ID, "61999"));
+export const EXPLORER_URL = envOrDefault(process.env.NEXT_PUBLIC_EXPLORER_URL, "https://explorer-studio.genlayer.com");
+export const CONTRACT_ADDRESS = envOrDefault(process.env.NEXT_PUBLIC_CONTRACT_ADDRESS, "");
 
 export function isContractConfigured(): boolean {
   return Boolean(CONTRACT_ADDRESS);
