@@ -1,17 +1,22 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getCase, MODE_LABEL, resolveCase, type CaseRecord } from "@/lib/cases";
-import { connectWallet, explorerAddressUrl, formatError, isContractConfigured } from "@/lib/genlayer";
-import { StatusPill, VerdictBadge } from "@/components/VerdictBadge";
+import { connectWallet, formatError, isContractConfigured } from "@/lib/genlayer";
+import { StatusPill } from "@/components/VerdictBadge";
+import { ResolutionTimeline } from "@/components/ResolutionTimeline";
+import { ConsensusIndicator } from "@/components/ConsensusIndicator";
+import { VerdictCard } from "@/components/VerdictCard";
+import { EvidencePanel } from "@/components/EvidencePanel";
+import { ReceiptCard } from "@/components/ReceiptCard";
 
 type LoadState = { phase: "loading" } | { phase: "loaded"; record: CaseRecord } | { phase: "missing" } | { phase: "error"; message: string };
-type ResolveState = { phase: "idle" } | { phase: "pending" } | { phase: "error"; message: string };
+type ResolveState = { phase: "idle" } | { phase: "pending"; stage: number } | { phase: "error"; message: string };
 
 export function CaseReceipt({ caseId }: { caseId: string }) {
   const [state, setState] = useState<LoadState>({ phase: "loading" });
   const [resolveState, setResolveState] = useState<ResolveState>({ phase: "idle" });
-  const [lastTx, setLastTx] = useState<string | null>(null);
+  const stageTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async () => {
     if (!isContractConfigured()) {
@@ -30,109 +35,88 @@ export function CaseReceipt({ caseId }: { caseId: string }) {
     load();
   }, [load]);
 
+  useEffect(() => {
+    return () => {
+      if (stageTimer.current) clearTimeout(stageTimer.current);
+    };
+  }, []);
+
   async function handleResolve() {
-    setResolveState({ phase: "pending" });
+    setResolveState({ phase: "pending", stage: 0 });
     try {
       const { client } = await connectWallet();
-      const result = await resolveCase(client, caseId);
-      setLastTx(result.explorerUrl);
-      setResolveState({ phase: "idle" });
+      setResolveState({ phase: "pending", stage: 1 });
+      stageTimer.current = setTimeout(() => setResolveState({ phase: "pending", stage: 2 }), 4000);
+      await resolveCase(client, caseId);
+      if (stageTimer.current) clearTimeout(stageTimer.current);
+      setResolveState({ phase: "pending", stage: 3 });
       await load();
+      setResolveState({ phase: "idle" });
     } catch (err) {
+      if (stageTimer.current) clearTimeout(stageTimer.current);
       setResolveState({ phase: "error", message: formatError(err) });
     }
   }
 
-  function copyShareLink() {
-    if (typeof window === "undefined") return;
-    navigator.clipboard?.writeText(window.location.href).catch(() => {});
-  }
-
-  if (state.phase === "loading") return <div className="text-ink-muted">Loading case #{caseId}&hellip;</div>;
+  if (state.phase === "loading") return <div className="text-[14px] text-ink-secondary">Loading case #{caseId}&hellip;</div>;
   if (state.phase === "missing")
-    return <div className="rounded-md border border-line bg-card px-4 py-3 text-ink-muted">No case found with id #{caseId}.</div>;
+    return (
+      <div className="rounded-[20px] border border-line bg-surface px-6 py-14 text-center text-[14px] text-ink-secondary">
+        No case found with id #{caseId}.
+      </div>
+    );
   if (state.phase === "error")
-    return <div className="rounded-md border border-gone/40 bg-gone/10 px-4 py-3 text-sm text-gone">{state.message}</div>;
+    return <div className="rounded-[14px] border border-danger-border bg-danger-bg px-4 py-3 text-[13px] text-danger">{state.message}</div>;
 
   const c = state.record;
+
+  if (resolveState.phase === "pending") {
+    return (
+      <div className="mx-auto max-w-lg space-y-8 py-6 text-center">
+        <div>
+          <h1 className="text-[24px] font-semibold tracking-tight text-ink">Verifying Your Case</h1>
+          <p className="mt-2 text-[14px] text-ink-secondary">
+            Our network of independent validators is reviewing your claim. This usually takes a
+            few minutes on Studionet.
+          </p>
+        </div>
+        <ResolutionTimeline activeIndex={resolveState.stage} />
+        <ConsensusIndicator done={resolveState.stage >= 3} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-ink-faint">
+          <div className="flex items-center gap-2 text-[12px] uppercase tracking-wide text-ink-muted">
             <span>Case #{c.id}</span>
             <span>&middot;</span>
             <span>{MODE_LABEL[c.mode]}</span>
           </div>
-          <h1 className="mt-1 font-serif text-2xl font-semibold text-ink">{c.claim_or_question || c.template_id}</h1>
+          <h1 className="mt-1 text-[22px] font-semibold text-ink">{c.claim_or_question || c.template_id}</h1>
         </div>
-        <div className="flex items-center gap-3">
-          <StatusPill status={c.status} />
-          {c.status === "FINAL" && <VerdictBadge verdict={c.verdict} />}
-        </div>
+        <StatusPill status={c.status} />
       </div>
 
-      <dl className="grid grid-cols-1 gap-4 rounded-lg border border-line bg-card p-5 sm:grid-cols-2">
-        <div>
-          <dt className="text-xs uppercase tracking-wide text-ink-faint">Filer</dt>
-          <dd className="mt-1 break-all font-mono text-sm text-ink">
-            <a className="hover:underline" href={explorerAddressUrl(c.filer)} target="_blank" rel="noreferrer">
-              {c.filer}
-            </a>
-          </dd>
-        </div>
-        <div>
-          <dt className="text-xs uppercase tracking-wide text-ink-faint">Filed</dt>
-          <dd className="mt-1 text-sm text-ink">{c.created_at || "—"}</dd>
-        </div>
-        {c.mode === "TEMPLATE" ? (
-          <div className="sm:col-span-2">
-            <dt className="text-xs uppercase tracking-wide text-ink-faint">Template fields</dt>
-            <dd className="mt-1 space-y-1 text-sm text-ink">
-              {Object.entries(c.template_fields).map(([k, v]) => (
-                <div key={k}>
-                  <span className="text-ink-faint">{k}:</span> {v}
-                </div>
-              ))}
-            </dd>
-          </div>
-        ) : (
-          <div className="sm:col-span-2">
-            <dt className="text-xs uppercase tracking-wide text-ink-faint">
-              {c.urls.length > 1 ? "URLs" : "URL"}
-            </dt>
-            <dd className="mt-1 space-y-1 text-sm">
-              {c.urls.map((u) => (
-                <div key={u}>
-                  <a className="break-all text-accent hover:underline" href={u} target="_blank" rel="noreferrer">
-                    {u}
-                  </a>
-                </div>
-              ))}
-            </dd>
-          </div>
-        )}
-      </dl>
-
       {c.status === "OPEN" && (
-        <div className="rounded-lg border border-line bg-card p-5">
-          <p className="mb-3 text-sm text-ink-muted">
+        <div className="rounded-[20px] border border-line bg-surface p-6">
+          <p className="mb-4 text-[14px] text-ink-secondary">
             This case is open. Anyone can trigger resolution — validators will fetch the live
             evidence now, not whatever it looked like when the case was filed.
           </p>
           <button
             onClick={handleResolve}
-            disabled={resolveState.phase === "pending"}
-            className="rounded-md bg-accent px-5 py-2 font-medium text-accent-fg disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-full bg-dark px-6 py-2.5 text-[14px] font-medium text-white transition-all hover:-translate-y-px hover:bg-dark-hover"
           >
-            {resolveState.phase === "pending" ? "Resolving… (this can take a few minutes)" : "Resolve now"}
+            Resolve now
           </button>
           {resolveState.phase === "error" && (
-            <div role="alert" className="mt-3 rounded-md border border-gone/40 bg-gone/10 px-4 py-3 text-sm text-gone">
-              {resolveState.message}
+            <div role="alert" className="mt-4 rounded-[14px] border border-danger-border bg-danger-bg px-4 py-3 text-[13px] text-danger">
+              We couldn&rsquo;t resolve this case. {resolveState.message}
               <button onClick={() => setResolveState({ phase: "idle" })} className="ml-3 underline">
-                Try again
+                Try Again
               </button>
             </div>
           )}
@@ -140,75 +124,26 @@ export function CaseReceipt({ caseId }: { caseId: string }) {
       )}
 
       {c.status === "RESOLVING" && (
-        <div className="rounded-lg border border-line bg-card p-5 text-sm text-ink-muted">
+        <div className="rounded-[20px] border border-line bg-surface p-6 text-[14px] text-ink-secondary">
           Resolution is in flight. Reload this page in a minute — verdicts only appear here once
           the network has actually finalized them.
         </div>
       )}
 
       {c.status === "FAILED" && (
-        <div className="rounded-lg border border-gone/40 bg-gone/10 p-5 text-sm text-gone">
-          Resolution failed (validators could not reach consensus on a well-formed verdict). This
+        <div className="rounded-[20px] border border-danger-border bg-danger-bg p-6 text-[14px] text-danger">
+          Resolution failed — validators could not reach consensus on a well-formed verdict. This
           case cannot be re-resolved automatically; file a new case if you want another attempt.
         </div>
       )}
 
       {c.status === "FINAL" && (
-        <div className="space-y-4 rounded-lg border border-line bg-card p-5">
-          <div className="flex items-center gap-3 text-sm text-ink-muted">
-            <span>Confidence: {c.confidence || "—"}</span>
-            <span>&middot;</span>
-            <span>Resolved {c.resolved_at || "—"}</span>
-          </div>
-          {c.reasons.length > 0 && (
-            <div>
-              <h2 className="text-xs uppercase tracking-wide text-ink-faint">Reasons</h2>
-              <ul className="mt-1 list-inside list-disc space-y-1 text-sm text-ink">
-                {c.reasons.map((r, i) => (
-                  <li key={i}>{r}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {c.risk_flags.length > 0 && (
-            <div>
-              <h2 className="text-xs uppercase tracking-wide text-ink-faint">Risk flags</h2>
-              <div className="mt-1 flex flex-wrap gap-2">
-                {c.risk_flags.map((f, i) => (
-                  <span key={i} className="rounded-full border border-line-strong px-2.5 py-0.5 text-xs text-ink-muted">
-                    {f}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-          {c.source_notes.length > 0 && (
-            <div>
-              <h2 className="text-xs uppercase tracking-wide text-ink-faint">Source notes</h2>
-              <ul className="mt-1 list-inside list-disc space-y-1 text-sm text-ink-muted">
-                {c.source_notes.map((s, i) => (
-                  <li key={i}>{s}</li>
-                ))}
-              </ul>
-            </div>
-          )}
+        <div className="space-y-5">
+          <VerdictCard record={c} />
+          <EvidencePanel record={c} />
+          <ReceiptCard record={c} />
         </div>
       )}
-
-      {lastTx && (
-        <div className="text-sm text-ink-muted">
-          Last transaction:{" "}
-          <a className="underline" href={lastTx} target="_blank" rel="noreferrer">
-            view on explorer
-          </a>
-        </div>
-      )}
-
-      <div className="flex gap-4 text-sm">
-        <button onClick={copyShareLink} className="text-accent hover:underline">
-          Copy share link
-        </button>
-      </div>
     </div>
   );
 }

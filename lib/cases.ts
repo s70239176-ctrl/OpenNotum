@@ -116,16 +116,28 @@ export const VERDICT_LABEL: Record<string, string> = {
   "": "Pending",
 };
 
-export const VERDICT_TONE: Record<string, "confirmed" | "changed" | "gone" | "insufficient"> = {
-  CONFIRMED: "confirmed",
-  AGREED: "confirmed",
-  PASS: "confirmed",
-  CHANGED: "changed",
-  CONFLICT: "changed",
-  GONE: "gone",
-  FAIL: "gone",
-  INSUFFICIENT: "insufficient",
-  "": "insufficient",
+export const VERDICT_TONE: Record<string, "positive" | "negative" | "neutral" | "pending"> = {
+  CONFIRMED: "positive",
+  AGREED: "positive",
+  PASS: "positive",
+  CHANGED: "negative",
+  CONFLICT: "negative",
+  FAIL: "negative",
+  GONE: "neutral",
+  INSUFFICIENT: "pending",
+  "": "pending",
+};
+
+export const VERDICT_EXPLANATION: Record<string, string> = {
+  CONFIRMED: "The live page substantively supports the claim.",
+  CHANGED: "The page is reachable but does not support the claim.",
+  GONE: "The source was unavailable when the network resolved this case.",
+  AGREED: "The sources gave a compatible answer to the question.",
+  CONFLICT: "The sources gave incompatible answers to the question.",
+  PASS: "The template's condition held.",
+  FAIL: "The template's condition did not hold.",
+  INSUFFICIENT: "The network could not establish a result from the available evidence.",
+  "": "This case has not been resolved yet.",
 };
 
 export const MODE_LABEL: Record<Mode, string> = {

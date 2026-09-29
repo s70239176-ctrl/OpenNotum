@@ -1,13 +1,13 @@
-import { CaseList } from "@/components/CaseList";
+import { RecordList } from "@/components/RecordList";
 
 export default function CasesPage() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h1 className="font-serif text-3xl font-semibold text-ink">Docket</h1>
-        <p className="mt-1 text-ink-muted">The latest attestations filed on Studionet.</p>
+        <h1 className="text-[28px] font-semibold tracking-tight text-ink">Records</h1>
+        <p className="mt-1.5 text-[15px] text-ink-secondary">View and browse verified cases on Studionet.</p>
       </div>
-      <CaseList />
+      <RecordList />
     </div>
   );
 }
