@@ -18,7 +18,7 @@ _TODO: Vercel URL, filled in at Phase 5._
 | RPC | `https://studio.genlayer.com/api` |
 | Chain ID | `61999` |
 | Explorer | `https://explorer-studio.genlayer.com` |
-| Contract address | _TODO: filled in at Phase 5_ |
+| Contract address | [`0xd162391B0EB47dD06D3eB0E5b92974E03B0e6c34`](https://explorer-studio.genlayer.com/address/0xd162391B0EB47dD06D3eB0E5b92974E03B0e6c34) |
 
 ## How it works
 
@@ -64,11 +64,14 @@ inputs for each mode (clearly labeled as samples, never submitted silently).
 ## Roadmap
 
 - Phase 0 — Definition (this repo's docs) — done.
-- Phase 1 — Contract MVP (create + views, full validation).
-- Phase 2 — Resolve (live fetch + LLM + consensus, all three modes).
-- Phase 3 — Frontend MVP against the deployed contract.
-- Phase 4 — Hardening (documented failure-state tests).
-- Phase 5 — Deploy + package (this README filled in end to end).
+- Phase 1 — Contract MVP (create + views, full validation) — done.
+- Phase 2 — Resolve (live fetch + LLM + consensus) — verified live for
+  Snapshot mode (see the contract address above); Conflict and Template
+  modes not yet exercised on Studionet.
+- Phase 3 — Frontend MVP against the deployed contract — done.
+- Phase 4 — Hardening (documented failure-state tests) — not started.
+- Phase 5 — Deploy + package — contract deployed and verified; frontend
+  deployment in progress.
 
 See [`docs/PRD.md`](docs/PRD.md), [`docs/TRD.md`](docs/TRD.md), and
 [`docs/SDLC.md`](docs/SDLC.md) for the full spec.
