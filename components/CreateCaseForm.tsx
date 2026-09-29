@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { connectWallet, isContractConfigured } from "@/lib/genlayer";
+import { connectWallet, formatError, isContractConfigured } from "@/lib/genlayer";
 import { createCase, getTemplates, MODE_LABEL, SAMPLES, type Mode, type TemplateDef, type TemplateId } from "@/lib/cases";
 
 type SubmitState =
@@ -88,7 +88,7 @@ export function CreateCaseForm() {
       });
       setState({ phase: "success", caseId: result.caseId, explorerUrl: result.explorerUrl });
     } catch (err) {
-      setState({ phase: "error", message: err instanceof Error ? err.message : String(err) });
+      setState({ phase: "error", message: formatError(err) });
     }
   }
 

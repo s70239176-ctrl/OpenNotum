@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { getCase, MODE_LABEL, resolveCase, type CaseRecord } from "@/lib/cases";
-import { connectWallet, explorerAddressUrl, isContractConfigured } from "@/lib/genlayer";
+import { connectWallet, explorerAddressUrl, formatError, isContractConfigured } from "@/lib/genlayer";
 import { StatusPill, VerdictBadge } from "@/components/VerdictBadge";
 
 type LoadState = { phase: "loading" } | { phase: "loaded"; record: CaseRecord } | { phase: "missing" } | { phase: "error"; message: string };
@@ -22,7 +22,7 @@ export function CaseReceipt({ caseId }: { caseId: string }) {
       const record = await getCase(caseId);
       setState(record ? { phase: "loaded", record } : { phase: "missing" });
     } catch (err) {
-      setState({ phase: "error", message: err instanceof Error ? err.message : String(err) });
+      setState({ phase: "error", message: formatError(err) });
     }
   }, [caseId]);
 
@@ -39,7 +39,7 @@ export function CaseReceipt({ caseId }: { caseId: string }) {
       setResolveState({ phase: "idle" });
       await load();
     } catch (err) {
-      setResolveState({ phase: "error", message: err instanceof Error ? err.message : String(err) });
+      setResolveState({ phase: "error", message: formatError(err) });
     }
   }
 

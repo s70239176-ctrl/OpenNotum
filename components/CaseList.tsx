@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getLatest, MODE_LABEL, type CaseRecord } from "@/lib/cases";
 import { StatusPill, VerdictBadge } from "@/components/VerdictBadge";
-import { isContractConfigured } from "@/lib/genlayer";
+import { formatError, isContractConfigured } from "@/lib/genlayer";
 
 type LoadState = { phase: "loading" } | { phase: "loaded"; cases: CaseRecord[] } | { phase: "error"; message: string };
 
@@ -22,7 +22,7 @@ export function CaseList({ limit = 25 }: { limit?: number }) {
         if (!cancelled) setState({ phase: "loaded", cases });
       })
       .catch((err) => {
-        if (!cancelled) setState({ phase: "error", message: err instanceof Error ? err.message : String(err) });
+        if (!cancelled) setState({ phase: "error", message: formatError(err) });
       });
     return () => {
       cancelled = true;

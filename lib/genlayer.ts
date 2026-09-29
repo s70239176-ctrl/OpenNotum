@@ -26,6 +26,30 @@ export function isContractConfigured(): boolean {
   return Boolean(CONTRACT_ADDRESS);
 }
 
+/**
+ * Extracts a human-readable message from whatever a wallet/RPC call rejects
+ * with. EIP-1193 providers and viem often reject with a plain
+ * {code, message} object rather than an Error instance, so a bare
+ * `String(err)` collapses to "[object Object]" — this checks the common
+ * shapes (Error, viem's shortMessage/message, EIP-1193 error objects) before
+ * falling back to JSON.
+ */
+export function formatError(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === "string") return err;
+  if (err && typeof err === "object") {
+    const obj = err as Record<string, unknown>;
+    const candidate = obj.shortMessage ?? obj.message ?? obj.details ?? obj.reason;
+    if (typeof candidate === "string" && candidate.trim()) return candidate;
+    try {
+      return JSON.stringify(err);
+    } catch {
+      return "Unknown error";
+    }
+  }
+  return String(err);
+}
+
 export function explorerTxUrl(hash: string): string {
   return `${EXPLORER_URL}/tx/${hash}`;
 }
