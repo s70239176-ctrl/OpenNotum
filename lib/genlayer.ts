@@ -7,9 +7,16 @@
  */
 import { createClient } from "genlayer-js";
 import { studionet } from "genlayer-js/chains";
-import { TransactionStatus, type CalldataEncodable, type Hash } from "genlayer-js/types";
+import { TransactionStatus, type CalldataEncodable, type Hash, type Network } from "genlayer-js/types";
 
-export const NETWORK_NAME = process.env.NEXT_PUBLIC_NETWORK_NAME ?? "studionet";
+const VALID_NETWORKS: Network[] = ["localnet", "studionet", "testnetAsimov", "testnetBradbury", "mainnet"];
+
+function resolveNetworkName(): Network {
+  const raw = process.env.NEXT_PUBLIC_NETWORK_NAME ?? "studionet";
+  return (VALID_NETWORKS as string[]).includes(raw) ? (raw as Network) : "studionet";
+}
+
+export const NETWORK_NAME: Network = resolveNetworkName();
 export const RPC_URL = process.env.NEXT_PUBLIC_GENLAYER_RPC ?? "https://studio.genlayer.com/api";
 export const CHAIN_ID = Number(process.env.NEXT_PUBLIC_CHAIN_ID ?? "61999");
 export const EXPLORER_URL = process.env.NEXT_PUBLIC_EXPLORER_URL ?? "https://explorer-studio.genlayer.com";
@@ -65,6 +72,10 @@ export async function connectWallet(): Promise<{ client: WalletClient; address: 
     account: address as `0x${string}`,
     provider: ethereum,
   });
+  // Switches (or adds, if missing) the wallet's active network to match
+  // NETWORK_NAME — without this the wallet keeps whatever chain it already
+  // had selected and every write is rejected with a chain-id mismatch.
+  await client.connect(NETWORK_NAME);
   return { client, address };
 }
 
