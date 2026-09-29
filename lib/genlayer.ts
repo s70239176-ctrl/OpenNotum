@@ -88,32 +88,40 @@ type EIP1193Provider = {
 /**
  * genlayer-js's client.connect() signs in via a MetaMask *Snap*
  * (npm:genlayer-wallet-plugin) — it calls the MetaMask-only `wallet_getSnaps`
- * method to check whether the snap is installed. If another wallet extension
- * (Coinbase Wallet, Rabby, Brave Wallet, etc.) has also injected itself and
- * taken over `window.ethereum`, that call fails with a confusing "no
- * handler" error. Multi-wallet-aware extensions expose every injected
- * provider under `window.ethereum.providers`, so pick the MetaMask one
- * specifically instead of trusting whichever provider is on top.
+ * method to check whether the snap is installed. Many other wallet
+ * extensions (Coinbase Wallet, Rabby, Brave Wallet, OKX Wallet, etc.) also
+ * set `isMetaMask: true` on their injected provider for site-compatibility
+ * reasons, so that flag alone can't tell real MetaMask apart from an
+ * impostor. The only reliable test is whether `wallet_getSnaps` actually
+ * works — so probe every injected provider (`window.ethereum.providers` when
+ * multiple wallets are installed, else just `window.ethereum`) and use the
+ * first one that answers it without throwing.
  */
-function findMetaMaskProvider(): EIP1193Provider | undefined {
+async function findSnapsCapableProvider(): Promise<EIP1193Provider | undefined> {
   const ethereum = (globalThis as { ethereum?: EIP1193Provider }).ethereum;
   if (!ethereum) return undefined;
-  if (Array.isArray(ethereum.providers) && ethereum.providers.length > 0) {
-    return ethereum.providers.find((p) => p.isMetaMask) ?? ethereum;
+  const candidates =
+    Array.isArray(ethereum.providers) && ethereum.providers.length > 0 ? ethereum.providers : [ethereum];
+  for (const candidate of candidates.filter((p) => p.isMetaMask)) {
+    try {
+      await candidate.request({ method: "wallet_getSnaps" });
+      return candidate;
+    } catch {
+      // Not real MetaMask (or Snaps unsupported) — try the next candidate.
+    }
   }
-  return ethereum;
+  return undefined;
 }
 
 /** Requests a browser wallet connection and returns a client that can sign writes. */
 export async function connectWallet(): Promise<{ client: WalletClient; address: string }> {
-  const ethereum = findMetaMaskProvider();
+  const ethereum = await findSnapsCapableProvider();
   if (!ethereum) {
-    throw new Error("No browser wallet found. Install MetaMask to file or resolve cases.");
-  }
-  if (!ethereum.isMetaMask) {
     throw new Error(
-      "GenLayer requires MetaMask specifically (it signs through a MetaMask Snap). " +
-        "Disable other wallet extensions or select MetaMask as the active wallet, then try again.",
+      "Could not find a MetaMask wallet with Snaps support. GenLayer signs through a MetaMask " +
+        "Snap, so a plain wallet connection isn't enough — install MetaMask (and disable other " +
+        "wallet extensions that also claim to be MetaMask, if you have any installed), update it " +
+        "to a recent version, and try again.",
     );
   }
   const accounts = (await ethereum.request({ method: "eth_requestAccounts" })) as string[];
