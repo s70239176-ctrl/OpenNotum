@@ -27,7 +27,13 @@ export function explorerAddressUrl(address: string): string {
   return `${EXPLORER_URL}/address/${address}`;
 }
 
-const chain = { ...studionet, id: CHAIN_ID, rpcUrls: { default: { http: [RPC_URL] } } };
+// genlayer-js's `studionet` preset already carries the right chain id and RPC
+// url. We only pass a custom `endpoint` (a separate createClient param, not a
+// mutated chain shape) when the configured RPC genuinely differs from the
+// preset's default — overriding the chain object's own `rpcUrls` breaks its
+// internal transport and produces empty, unparsable RPC responses.
+const usingDefaultRpc = RPC_URL === studionet.rpcUrls?.default?.http?.[0];
+const endpointOverride = usingDefaultRpc ? undefined : RPC_URL;
 
 type ReadClient = ReturnType<typeof createClient>;
 let readClient: ReadClient | null = null;
@@ -35,7 +41,7 @@ let readClient: ReadClient | null = null;
 /** Account-less client for view calls — no wallet needed to read the docket. */
 export function getReadClient(): ReadClient {
   if (!readClient) {
-    readClient = createClient({ chain });
+    readClient = createClient({ chain: studionet, endpoint: endpointOverride });
   }
   return readClient;
 }
@@ -53,7 +59,12 @@ export async function connectWallet(): Promise<{ client: WalletClient; address: 
   if (!address) {
     throw new Error("Wallet did not return an account.");
   }
-  const client = createClient({ chain, account: address as `0x${string}`, provider: ethereum });
+  const client = createClient({
+    chain: studionet,
+    endpoint: endpointOverride,
+    account: address as `0x${string}`,
+    provider: ethereum,
+  });
   return { client, address };
 }
 
