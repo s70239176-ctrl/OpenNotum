@@ -81,53 +81,63 @@ export type WalletClient = ReturnType<typeof createClient>;
 
 type EIP1193Provider = {
   request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
-  isMetaMask?: boolean;
-  providers?: EIP1193Provider[];
 };
 
-/**
- * genlayer-js's client.connect() signs in via a MetaMask *Snap*
- * (npm:genlayer-wallet-plugin) — it calls the MetaMask-only `wallet_getSnaps`
- * method to check whether the snap is installed. Many other wallet
- * extensions (Coinbase Wallet, Rabby, Brave Wallet, OKX Wallet, etc.) also
- * set `isMetaMask: true` on their injected provider for site-compatibility
- * reasons, so that flag alone can't tell real MetaMask apart from an
- * impostor. The only reliable test is whether `wallet_getSnaps` actually
- * works — so probe every injected provider (`window.ethereum.providers` when
- * multiple wallets are installed, else just `window.ethereum`) and use the
- * first one that answers it without throwing.
- */
-async function findSnapsCapableProvider(): Promise<EIP1193Provider | undefined> {
-  const ethereum = (globalThis as { ethereum?: EIP1193Provider }).ethereum;
-  if (!ethereum) return undefined;
-  const candidates =
-    Array.isArray(ethereum.providers) && ethereum.providers.length > 0 ? ethereum.providers : [ethereum];
-  for (const candidate of candidates.filter((p) => p.isMetaMask)) {
-    try {
-      await candidate.request({ method: "wallet_getSnaps" });
-      return candidate;
-    } catch {
-      // Not real MetaMask (or Snaps unsupported) — try the next candidate.
-    }
-  }
-  return undefined;
+function getInjectedProvider(): EIP1193Provider | undefined {
+  return (globalThis as { ethereum?: EIP1193Provider }).ethereum;
 }
 
-/** Requests a browser wallet connection and returns a client that can sign writes. */
+/**
+ * Adds (if missing) and switches the wallet to the Studionet chain, using
+ * the standard EIP-3085/3326 wallet methods every injected wallet supports —
+ * not genlayer-js's own client.connect(), which additionally tries to
+ * install a MetaMask-only Snap. That Snap turns out to be unnecessary for
+ * signing: writeContract() sends a plain eth_sendTransaction to the
+ * ConsensusMain contract with GenLayer-encoded calldata, which any wallet
+ * that can sign an ordinary transaction can do. Restricting this app to
+ * MetaMask specifically was an over-correction — this switches network only,
+ * so any wallet works.
+ */
+async function ensureStudionet(ethereum: EIP1193Provider): Promise<void> {
+  const chainIdHex = `0x${studionet.id.toString(16)}`;
+  const currentChainId = await ethereum.request({ method: "eth_chainId" });
+  if (currentChainId === chainIdHex) return;
+  try {
+    await ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: chainIdHex }] });
+  } catch {
+    // Most likely the chain hasn't been added to this wallet yet (EIP-3085's
+    // error code 4902) — add it, then switch.
+    await ethereum.request({
+      method: "wallet_addEthereumChain",
+      params: [
+        {
+          chainId: chainIdHex,
+          chainName: studionet.name,
+          rpcUrls: studionet.rpcUrls.default.http,
+          nativeCurrency: studionet.nativeCurrency,
+          blockExplorerUrls: studionet.blockExplorers?.default.url ? [studionet.blockExplorers.default.url] : [],
+        },
+      ],
+    });
+    await ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: chainIdHex }] });
+  }
+}
+
+/** Requests a browser wallet connection (any wallet, not just MetaMask) and returns a client that can sign writes. */
 export async function connectWallet(): Promise<{ client: WalletClient; address: string }> {
-  const ethereum = await findSnapsCapableProvider();
+  const ethereum = getInjectedProvider();
   if (!ethereum) {
-    throw new Error(
-      "Could not find a MetaMask wallet with Snaps support. GenLayer signs through a MetaMask " +
-        "Snap, so a plain wallet connection isn't enough — install MetaMask (and disable other " +
-        "wallet extensions that also claim to be MetaMask, if you have any installed), update it " +
-        "to a recent version, and try again.",
-    );
+    throw new Error("No browser wallet found. Install a wallet extension to file or resolve cases.");
   }
   const accounts = (await ethereum.request({ method: "eth_requestAccounts" })) as string[];
   const address = accounts[0];
   if (!address) {
     throw new Error("Wallet did not return an account.");
+  }
+  try {
+    await ensureStudionet(ethereum);
+  } catch (err) {
+    throw new Error(`Could not switch your wallet to Studionet: ${formatError(err)}`);
   }
   const client = createClient({
     chain: studionet,
@@ -135,16 +145,6 @@ export async function connectWallet(): Promise<{ client: WalletClient; address: 
     account: address as `0x${string}`,
     provider: ethereum,
   });
-  // Installs (or verifies) the GenLayer MetaMask Snap this client signs
-  // through, and switches the wallet's active network to match NETWORK_NAME.
-  try {
-    await client.connect(NETWORK_NAME);
-  } catch (err) {
-    throw new Error(
-      `Could not connect to the GenLayer MetaMask Snap: ${formatError(err)}. ` +
-        "Make sure MetaMask is up to date and Snaps are enabled.",
-    );
-  }
   return { client, address };
 }
 
