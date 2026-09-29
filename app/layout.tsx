@@ -11,6 +11,7 @@ export const metadata: Metadata = {
   title: "OpenNotum — the web changes, proof shouldn't",
   description:
     "OpenNotum creates independently verified records of public web content on GenLayer Studionet. Not a legal notary.",
+  themeColor: "#111827",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

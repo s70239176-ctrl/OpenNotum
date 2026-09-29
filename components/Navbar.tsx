@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
+import { LogoMark } from "@/components/LogoMark";
 
 const LINKS = [
   { href: "/", label: "Verify" },
@@ -20,9 +21,7 @@ export function Navbar() {
     <header className="sticky top-0 z-40 border-b border-line bg-surface/80 backdrop-blur-md">
       <nav className="mx-auto flex max-w-[1320px] items-center justify-between px-6 py-4">
         <Link href="/" className="flex items-center gap-2 text-[15px] font-semibold tracking-tight text-ink">
-          <span className="inline-flex h-6 w-6 items-center justify-center rounded-[7px] bg-dark text-[11px] font-bold text-white">
-            O
-          </span>
+          <LogoMark size={24} />
           OpenNotum
         </Link>
 
